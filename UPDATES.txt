@@ -1,0 +1,217 @@
+------------------------------------------------ MAY 15, 2026 -----------------------------------------------------------
+UPDATED FILES
+
+app\Vehicles.php
+app\Http\Controllers\VehicleController.php
+resources\views\vehicle\index.blade.php
+routes\web.php
+
+app\Http\Controllers\ReportController.php
+resources\views\reports\issuance-vehicle-details.blade.php
+
+
+
+VAPT
+public\assets\plugins\jquery\jquery.min.js
+public\assets\plugins\jquery-ui\jquery-ui.min.js
+public\assets\plugins\bootstrap\js\bootstrap.bundle.min.js
+
+
+QUERY: 
+    DB: vms
+
+        ALTER TABLE unit
+        ADD isLowFuel TINYINT DEFAULT 0;
+
+
+    DB: fms_db
+
+        ALTER TABLE issuance_request_tbl
+        ADD isLowFuel TINYINT DEFAULT 0;
+
+
+
+
+
+------------------------------------------------ MAY 6, 2026 -----------------------------------------------------------
+REQUEST: 
+    DONE - Add edit processed by in Issuances record old value then new value
+    DONE - in vehicle details, make the month hoverable then remove prev fuel column
+
+
+UPDATED FILES:
+
+app\IssuanceRequest.php
+app\Http\Controllers\FuelController.php
+app\Http\Controllers\VehicleController.php
+resources\views\fuel\index.blade.php
+routes\web.php
+
+
+QUERY:
+   
+    ALTER TABLE issuance_request_tbl
+    ADD 
+        old_processed_by VARCHAR(255) NULL,
+        old_processed_at VARCHAR(255) NULL;
+
+
+
+
+
+
+------------------------------------------------ APRIL 28, 2026 -----------------------------------------------------------
+UNDONEEEEE
+REQUEST: Create a Sync with WFS button in pending
+
+
+UPDATED FILES:
+
+app\Http\Controllers\FuelController.php
+resources\views\fuel\pending.blade.php
+
+config\services.php
+
+.env
+
+
+NEW FILES:
+app\Services\WfsService.php
+
+
+
+
+
+------------------------------------------------ MARCH 11, 2026 -----------------------------------------------------------
+REQUESTS:
+    Create status updater to check if the wfs_status is FULLY APPROVED
+
+QUERY:
+    SELECT 
+        fms.*,
+        wfs.id AS transaction_id,
+        wfs.id,
+        approval.status AS approval_status,
+        users.username AS approver_username
+    FROM 
+        fms_db.dbo.issuance_request_tbl fms
+    JOIN 
+        [PMC-WFS].dbo.transactions wfs 
+            ON CAST(wfs.id AS VARCHAR) = fms.wfs_transaction_id
+    JOIN 
+        [PMC-WFS].dbo.approval_status approval 
+            ON approval.transaction_id = wfs.id
+    JOIN 
+        [PMC-WFS].dbo.users users 
+            ON users.id = approval.approver_id
+    WHERE 
+        wfs_status = 'FULLY APPROVED' AND fms.status = 'PENDING'
+
+
+
+
+
+------------------------------------------------ JANUARY 9, 2026 -----------------------------------------------------------
+REQUESTS:
+
+Add alternate driver if there is
+
+UPDATES:
+
+resources\views\fuel\index.blade.php
+resources\views\fuel\edit-issued-request.blade.php
+resources\views\fuel\process.blade.php
+resources\views\fuel\pending.blade.php
+resources\views\reports\issued-issuances.blade.php 
+resources\views\reports\pending-issuances.blade.php
+resources\views\reports\issuance-status.blade.php
+
+app\Export\Issuances.php
+
+
+
+
+------------------------------------------------ DECEMBER 10, 2025 -----------------------------------------------------------
+REQUESTS:
+
+Create new field in fms_phase_code
+	Add phase_desc_mapping
+
+
+UPDATES:
+
+QUERY
+
+ALTER TABLE fms_phase_code
+ADD phase_desc_mapping VARCHAR(255) NULL;
+
+
+UPDATE fms_phase_code (base on the update phase_desc_mapping.sql)
+
+
+
+
+
+
+
+
+------------------------------------------------ DECEMBER 10, 2025 -----------------------------------------------------------
+REQUESTS:
+
+Create new field in fms_phase_code
+	Add phase_desc_mapping
+
+
+UPDATES:
+
+QUERY
+
+ALTER TABLE fms_phase_code
+ADD phase_desc_mapping VARCHAR(255) NULL;
+
+
+UPDATE fms_phase_code (base on the update phase_desc_mapping.sql)
+
+
+
+
+
+
+
+
+------------------------------------------------ OCTOBER 27, 2025 -----------------------------------------------------------
+UPDATES
+
+routes\web.php
+app\Http\Controllers\FuelController.php
+resources\views\fuel\index.blade.php
+resources\views\fuel\pending.blade.php
+resources\views\fuel\pre-post-operation\index.blade.php
+resources\views\fuel\edit-issued-request.blade.php
+
+
+NEW FILES
+
+app\AllowEditLogs.php
+
+public\assets\css\bootstrap-select.min.css
+public\assets\js\bootstrap-select.min.js
+public\assets\js\jquery-3.6.0.min.js
+
+
+QUERY
+
+CREATE TABLE fms_fuel_request_allow_edit_logs (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    request_id INT NOT NULL,
+    allowed_by INT NOT NULL,  
+	user_name NVARCHAR(100),
+	edited_by NVARCHAR(100),
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+
+
+ALTER TABLE issuance_request_tbl ADD wfs_transaction_id INT NULL DEFAULT NULL;
+ALTER TABLE issuance_request_tbl ADD wfs_status VARCHAR(50) NULL DEFAULT NULL;
+ALTER TABLE issuance_request_tbl ADD wfs_remarks VARCHAR(50) NULL DEFAULT NULL;

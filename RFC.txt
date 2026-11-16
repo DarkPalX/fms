@@ -1,0 +1,137 @@
+------------------------------------------------ NOVERMBER 12, 2025 -----------------------------------------------------------
+
+############### DPORTAL ###############
+UPDATES
+
+app\Http\Controllers\FmsController.php
+
+resources\views\fms\print.blade.php
+resources\views\fms\fuel-pending.blade.php
+
+routes\web.php
+
+
+############### WFS ###############
+UPDATES
+
+resources\views\transaction\details.blade.php
+
+
+
+
+
+
+
+
+REQUESTS:
+
+1. Allow Edit on Fuel Issuance in DPortal
+2. Change Phase Code on Fuel Issuances on FMS
+3. If Fuel Request has mismatching Originating Code and Expense Cost Code, then it will be passed on for approval in WFS before it can be seen on FMS Pending Issuance.
+
+
+
+
+############### DPORTAL ###############
+
+UPDATES
+
+app\Http\Controllers\FmsController.php
+
+resources\views\fms\fuel-pending.blade.php
+resources\views\fms\print.blade.php
+resources\views\fms\edit.blade.php
+
+routes\api.php
+
+.env
+
+NEW FILES
+
+app\DB_FMS\AllowEditLogs.php
+config\wfs.php
+
+
+INSTALL
+
+composer require guzzlehttp/guzzle:^6.5
+
+
+
+
+
+############### FMS ###############
+
+UPDATES
+
+routes\web.php
+app\Http\Controllers\FuelController.php
+resources\views\fuel\index.blade.php
+resources\views\fuel\pending.blade.php
+resources\views\fuel\pre-post-operation\index.blade.php
+resources\views\fuel\edit-issued-request.blade.php
+
+.env
+
+
+NEW FILES
+
+app\AllowEditLogs.php
+
+public\assets\css\bootstrap-select.min.css
+public\assets\js\bootstrap-select.min.js
+public\assets\js\jquery-3.6.0.min.js
+
+
+DATABASE
+
+CREATE TABLE fms_fuel_request_allow_edit_logs (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    request_id INT NOT NULL,
+    allowed_by INT NOT NULL,  
+	user_name NVARCHAR(100),
+	edited_by NVARCHAR(100),
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+
+
+ALTER TABLE issuance_request_tbl ADD wfs_transaction_id INT NULL DEFAULT NULL;
+ALTER TABLE issuance_request_tbl ADD wfs_status VARCHAR(50) NULL DEFAULT NULL;
+ALTER TABLE issuance_request_tbl ADD wfs_remarks VARCHAR(50) NULL DEFAULT NULL;
+
+
+
+
+
+############### WFS ###############
+
+UPDATES
+
+app\Http\Controllers\TransactionsController.php
+
+resources\views\layouts\app-new.blade.php
+resources\views\layouts\header.blade.php
+resources\views\transaction\index_new.blade.php
+resources\views\transaction\details.blade.php
+resources\views\approver\edit.blade.php
+
+routes\api.php
+
+.env
+
+NEW FILES
+
+app\Http\Controllers\Api\Fms\FmsTransactionController.php
+
+
+SETUP IN WFS ADMIN
+- ADD TEMPLATE AND SELECT DEPARTMENT MANAGER
+- ADD ALLOWED TRANSACTIONS (FMS, DPORTAL APP KEY, SELECT FMS)
+- SETUP APPROVERS TABLE AND ADD FMS (IF ERROR QUERY THIS: update users set trans_types = 'IMP|OSTR|OREM|HK|GATEPASS|VBS|FMS')
+
+
+DATABASE
+
+//for caamarillento and jpsubingsubing
+update users set department = 'GENERAL SERVICES|GSD Department|General Services Department' where id in (43,44)

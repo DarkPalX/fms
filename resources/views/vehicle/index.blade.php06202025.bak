@@ -1,0 +1,175 @@
+@extends('layouts.app')
+
+@section('pagecss')
+<link rel="stylesheet" href="{{ asset('assets/plugins/datatables-bs4/css/dataTables.bootstrap4.css') }}">
+@endsection
+
+@section('content')
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6"></div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-right">
+                    <li class="breadcrumb-item"><a href="#">Fuel Issuances</a></li>
+                    <li class="breadcrumb-item active">Vehicles</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Vehicles Table</h3>
+                            <form autocomplete="off" id="search_plateno">
+                                <div class="input-group input-group-sm float-right" style="width: 250px;margin-left: 5px;">
+                                    <input required type="search" name="plateno" class="form-control float-right" placeholder="Search Vehicle plate no.">
+
+                                    <div class="input-group-append">
+                                         <button type="submit" class="btn btn-default"><i class="fas fa-search"></i></button>
+                                    </div>
+                                </div>
+                            </form>
+                             {{--
+                            <a href="" class="btn btn-sm btn-primary float-right" data-toggle="modal" data-target="#modal-upload"><i class="fa fa-upload"></i> Vehicle Batch Upload</a>
+                            <a href="{{ route('vehicle-create') }}" class="btn btn-sm btn-success float-right" style="margin-right: 5px; "><i class="fa fa-truck"></i> Add New Vehicle</a>
+                            --}}
+                            {{--
+                            <a href="" class="btn btn-sm btn-primary float-right" data-toggle="modal" data-target="#modal-upload"><i class="fa fa-upload"></i> Vehicle Batch Upload</a>
+                            <a href="{{ route('vehicle-create') }}" class="btn btn-sm btn-success float-right" style="margin-right: 5px; "><i class="fa fa-truck"></i> Add New Vehicle</a>
+                            --}}
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <th>Brand/Model</th>
+                                <th>Plate No.</th>
+                                <th>Cost Code</th>
+                                <th>Department</th>
+                                <th>Type</th>
+                                <th>Action</th>
+                            </thead>
+                            <tbody id="vehicles_tbl">
+                                @forelse($vehicles as $v)
+                                    <tr>
+                                        <td class="text-uppercase">{{ $v->name }}</td>
+                                        <td>{{ $v->plateno }}</td>
+                                        <td>{{ $v->vehicle_code }}</td>
+                                        <td>{{ $v->dept }}</td>
+                                        <td>{{ $v->type }}</td>
+                                        <td>
+                                            <a class="btn btn-secondary btn-xs mb-1" href="{{ route('fms.vehicle-summary',$v->id) }}">View Summary</a>
+                                            {{--
+                                            @if(auth()->user()->role == 'super admin')
+                                            <button onclick="vdelete('{{$v->id}}')" class="btn btn-xs btn-danger">Delete</button>
+                                            @endif
+                                            --}}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="8">NO VEHICLES FOUND!</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="row card-footer clearfix">
+                        <div class="col-md-6">
+                            <p>Showing {{$vehicles->firstItem()}} to {{$vehicles->lastItem()}} of {{$vehicles->total()}} items</p>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="pagination pagination-sm m-0 float-right">
+                                {{ $vehicles->links() }}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="modal-upload">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('vehicle-import') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header">
+                    <h4 class="modal-title">Upload Vehicles</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <div class="input-group">
+                            <div class="custom-file">
+                                <input required type="file" name="file" class="form-control">
+                            </div>
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-sm btn-primary">Upload</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-delete">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('delete.vehicle') }}" method="post">
+                @csrf
+                <div class="modal-header">
+                    <h4 class="modal-title">Confirmation</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>You are about to delete this vehicle permanently. Do you want to continue?</p>
+                    <input type="hidden" id="vid" name="vid">
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+
+@section('pagejs')
+    <script src="{{ asset('assets/plugins/datatables/jquery.dataTables.js') }}"></script>
+    <script src="{{ asset('assets/plugins/datatables-bs4/js/dataTables.bootstrap4.js') }}"></script>
+
+    <script type="text/javascript">
+
+        $(document).ready(function(){
+            $('#search_plateno').submit(function(e){
+                e.preventDefault();
+                $.ajax({
+                    type: "GET",
+                    url: "{{ route('search.plateno') }}",
+                    data: $('#search_plateno').serialize(),
+                    success: function( response ) {
+                        $('#vehicles_tbl').html(response);  
+                    }
+                });
+            });
+        });
+
+        function vdelete(id){
+            $('#modal-delete').modal('show');
+            $('#vid').val(id);
+        }
+    </script>
+@endsection

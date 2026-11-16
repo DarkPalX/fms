@@ -1,0 +1,182 @@
+@extends('layouts.app')
+<style> 
+ .table_wrapper{
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+</style>
+@section('content')
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6"></div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-right">
+                    <li class="breadcrumb-item"><a href="#">Reports</a></li>
+                    <li class="breadcrumb-item active">Pending Fuel Issuances</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="content">
+    <div class="row">
+        <div class="col-md-12">
+            <form autocomplete="off">
+                <div class="row">
+                    <div class="col-sm-2">
+                        <div class="form-group">
+                            <label>Department <i class="text-danger">*</i></label>
+                            <select name="department" class="form-control">     
+                                <option value> -- Select Department -- </option>                              
+                                @foreach($depts as $dept)
+                                    @if(request()->department == $dept)
+                                        <option value="{{ $dept->dept }}" selected>{{ $dept->dept }} </option>
+                                    @else
+                                        <option value="{{ $dept->dept }}">{{ $dept->dept }} </option>
+                                    @endif
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-sm-2">
+                        <div class="form-group">
+                            <label>Fuel Type <i class="text-danger">*</i></label>
+                            <select name="fuel_type" class="form-control">     
+                                <option value> -- Select Fuel Type -- </option>                                 
+                                @foreach($fuel_types as $fuel_type)
+                                    @if(request()->fuel_type == $fuel_type)
+                                        <option value="{{ $fuel_type }}" selected>{{ $fuel_type }} </option>
+                                    @else
+                                        <option value="{{ $fuel_type }}">{{ $fuel_type }} </option>
+                                    @endif
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-sm-2">
+                        <div class="form-group">
+                            <label>Vehicle <i class="text-danger">*</i></label>
+                            <select name="vehicle" class="form-control">      
+                                <option value> -- Select Vehicle -- </option>                                
+                                @foreach($vehicles as $vehicle)
+                                    @if(request()->vehicle == $vehicle->vehicle)
+                                        <option value="{{ $vehicle->vehicle }}" selected>{{ $vehicle->vehicle }} - {{ $vehicle->plate_no }} - {{ $vehicle->vehicle_id }}  </option>
+                                    @else
+                                        <option value="{{ $vehicle->vehicle }}">{{ $vehicle->vehicle }} - {{ $vehicle->plate_no }} - {{ $vehicle->vehicle_id }}  </option>
+                                    @endif
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-sm-2">
+                        <div class="form-group">
+                            <label>Location <i class="text-danger">*</i></label>
+                            <select name="location" class="form-control">   
+                                <option value> -- Select Location -- </option>                                   
+                                <option value="mill" @if(request()->location == 'mill') selected @endif> Mill </option>
+                                <option value="mine" @if(request()->location == 'mine') selected @endif> Mine </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-sm-2">
+                        <div class="form-group">
+                            <label>Start Date <i class="text-danger">*</i></label>
+                            <input required type="date" class="form-control" name="startdate" value="{{ request()->has('startdate') ? request()->startdate : \Carbon\Carbon::now()->format('Y-m-d')  }}">
+                        </div>
+                    </div>
+                    <div class="col-sm-2">
+                        <div class="form-group">
+                            <label>End Date <i class="text-danger">*</i></label>
+                            <input required type="date" class="form-control" name="enddate" value="{{ request()->has('enddate') ? request()->enddate : \Carbon\Carbon::now()->format('Y-m-d') }}">
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        @if(isset($_GET['startdate']) && strlen($_GET['startdate'])>=1)
+                            <a href="{{ route('export.issuances-daterange', ['startdate' => request('startdate'), 'enddate'   => request('enddate'), 'status'    => 'PENDING']) }}" class="btn btn-info float-sm-right" style="margin-left: 10px;">Export to CSV</a>
+                            {{-- <a href="{{ route('export.issuances-daterange',[$_GET['startdate'],$_GET['enddate']]) }}?status=PENDING" class="btn btn-info float-sm-right" style="margin-left: 10px;">Export to CSV</a> --}}
+                        @endif
+                        <button type="submit" class="btn btn-primary" style="text-align: right; float: right;">Generate</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-md-12">
+            <h3 class="text-center">PENDING FUEL ISSUANCES</h3>
+            <p class="text-center">
+                @if(isset($_GET['startdate']) && strlen($_GET['startdate'])>=1)
+                    {{ date('m-d-Y',strtotime(app('request')->input('startdate'))) }} to {{ date('m-d-Y',strtotime(app('request')->input('enddate'))) }}
+                @else
+                    {{ today()->startOfMonth()->format('m-d-Y') }} to {{ today()->endOfMonth()->format('m-d-Y') }}
+                @endif
+            </p>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="card">                
+                <div class="card-body">
+                    <table id="example1" class="table table-bordered table-striped table_wrapper">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th width="10%">Transaction No.</th>
+                                <th>Originating Department</th>
+                                <th>RQ #</th>
+                                <th>Expense Cost Code</th>
+                                <th>Fuel Type</th>                                
+                                <th>Requested Qty</th>
+                                <th>Actual Qty</th>
+                                <th>Fuel Cost</th>
+                                <th>Vehicle</th>
+                                <th>Driver</th>
+                                <th>Processed By</th>
+                                <th>Status</th>
+                                <th>Cancelled By</th>
+                                <th width="15%">Reason</th>
+                                <th>Issued By</th>
+                                <th>Tank Status</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if(isset($rs))
+                                @php $row = 1; @endphp
+                                @forelse($rs as $r)
+                                    <tr style="font-size: 14px;">
+                                        <td>{{ $row++ }}</td>
+                                        <td>{{ $r->uniq_code }}</td>
+                                        <td>{{ $r->dept }}</td>
+                                        <td>{{ $r->rq }}<br><small>{{ $r->rq_costcode }}</small></td>
+                                        <td>{{ $r->cost_code }}</td>
+                                        <td>{{ $r->fuel_type }}<br><small>{{ $r->item_code }}</small></td> 
+                                        <td>{{ $r->requested_qty }}</td>
+                                        <td>{{ $r->actual_qty ?? '-'}}</td>
+                                        <td>{{ number_format($r->actual_qty * $r->fuel_cost,2) }} </td>
+                                        <td>{{ $r->vehicle }}<br><small>Plate No: {{ $r->plate_no }}</small></td>
+                                        <td>{{ $r->driver }} {{ $r->alternate_driver  ? '/'. $r->alternate_driver  : ''}}</td>
+                                        <td>{{ $r->added_by }}<br><small>{{ date('Y-m-d h:i A',strtotime($r->created_at)) }}</small></td>
+                                        <td>{{ $r->status }}</td>
+                                        <td>@if($r->status == 'CANCELLED') {{ $r->initiator }}<br><small>{{ date('Y-m-d h:i A',strtotime($r->initiated_at)) }}</small> @endif</td>
+                                        <td>{{ $r->remarks ?? '-' }}</td>
+                                        <td>@if($r->status == 'ISSUED'){{ $r->processed_by }}<br><small>{{ date('Y-m-d h:i A',strtotime($r->processed_at)) }}</small>@endif</td> 
+                                        <td>{{ $r->type }}</td>
+                                        <td>{{ $r->location }}</td>
+                                    </tr>
+                                @empty
+
+                                @endforelse
+                            @endif
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+@endsection

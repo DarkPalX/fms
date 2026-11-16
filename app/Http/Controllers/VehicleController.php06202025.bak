@@ -1,0 +1,758 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+use Auth;
+use DB;
+
+use App\IssuanceRequest;
+use App\Vehicles;
+use App\Dispatch;
+
+class VehicleController extends Controller
+{
+    public $months = [
+        '01'    => 'January',
+        '02'    => 'February',
+        '03'    => 'March',
+        '04'    => 'April',
+        '05'    => 'May',
+        '06'    => 'June',
+        '07'    => 'July',
+        '08'    => 'August',
+        '09'    => 'September',
+        '10'    => 'October',
+        '11'    => 'November',
+        '12'    => 'December'
+    ];
+
+    public function index(){
+
+        $vehicles = Vehicles::where('isECS',0)->orderBy('name', 'asc')->paginate(10); 
+
+        return view('vehicle.index',compact('vehicles'));
+    }
+
+    public function store(Request $req)
+    {
+        Vehicles::create([
+            'name' => $req->name,
+            'plateno' => $req->plateno,
+            'vehicle_code' => $req->ccode,
+            'type' => $req->type,
+            'dept' => $req->dept,
+            'isECS' => 0
+        ]);
+
+        return redirect(route('vehicle.lists'))->with('successMsg', 'Vehicle has been added.');
+    }
+
+    public function vehicle_chart($id)
+    {
+        $details = Vehicles::find($id);
+        return view('vehicle.chart',compact('details'));
+    }
+
+    // public function vehicleInfo($id){
+
+    //     $qry = IssuanceRequest::where('vehicle_id',$id);
+    //     $details = Vehicles::find($id);
+
+    //     $issuances = $qry->where('status','ISSUED')->orderBy('id','desc')->paginate(10);
+    //     $total_actual_qty = $qry->where('status','ISSUED')->sum('actual_qty');
+        
+    //     return view('vehicle.summary',compact('details','issuances','total_actual_qty'));
+    // }
+
+    public function getDataBetween($dateFrom, $dateTo){
+        $data = [];
+
+        switch($_GET["report_basis"]){
+            case "date":
+                break;
+            case "week":
+                $yearFrom = substr($dateFrom, 0, 4);
+                $weekFrom = substr($dateFrom, 6);
+                $yearTo = substr($dateTo, 0, 4);
+                $weekTo = substr($dateTo, 6);
+
+                $startWeek = Carbon::now()->setISODate($yearFrom, $weekFrom)->startOfWeek();
+                $endWeek = Carbon::now()->setISODate($yearTo, $weekTo)->startOfWeek();
+
+                while ($startWeek->lte($endWeek)) {
+                    $data[] = $startWeek->format('Y-\WW');
+                    $startWeek->addWeek();
+                }
+                break;
+            case "month":
+                $dateFrom = Carbon::parse($dateFrom);
+                $dateTo = Carbon::parse($dateTo);
+                $data[] = $dateFrom->format('Y-m');
+
+                while ($dateFrom->lt($dateTo)) {
+                    $dateFrom->addMonth();
+                    $data[] = $dateFrom->format('Y-m');
+                }
+                break;
+            case "number":
+                for ($i = $dateFrom; $i <= $dateTo; $i++) {
+                    $data[] = $i;
+                }
+                break;
+        }
+        
+        return $data;
+    }
+
+    public function vehicle_distance_travelled($id){
+
+        $arrayTransactions = Array();
+        $data = [];
+
+        $arrayDistanceTravelled = Array();
+        $previous_odo = 0;
+        $distance_traveled = 0;
+
+        if(isset($_GET["report_basis"])){
+            $arrayTransactions = $this->getDataBetween($_GET["date_from"], $_GET["date_to"]);
+            switch($_GET["report_basis"]){
+                case "week":
+                    foreach($arrayTransactions as $db){
+                        $startOfWeek = Carbon::parse($db)->startOfWeek()->toDateString();
+                        $endOfWeek = Carbon::parse($db)->endOfWeek()->toDateString();
+
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereBetween('processed_at', [$startOfWeek, $endOfWeek])
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+
+                        $total_distance_traveled = 0;
+                        foreach($data as $d){
+                            if($d->odo <= 0.01){
+                                $d->odo = 0.01;
+                            }
+                            if($previous_odo != 0){
+                                $distance_traveled = $d->odo - $previous_odo;
+                                if($distance_traveled == 0){
+                                    $distance_traveled = 0.01;
+                                }
+                            }
+                            $total_distance_traveled+=$distance_traveled;
+                            $previous_odo = $d->odo;
+                        }
+                        array_push($arrayDistanceTravelled, array($total_distance_traveled));
+                        $previous_odo = 0;
+                    }
+                    break;
+                case "month":
+                    foreach($arrayTransactions as $db){
+                        $ym = explode("-", $db);
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereYear('processed_at', '=', (int)$ym[0])
+                            ->whereMonth('processed_at', '=', (int)$ym[1])
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+                        
+                        $total_distance_traveled = 0;
+                        foreach($data as $d){
+                            if($d->odo <= 0.01){
+                                $d->odo = 0.01;
+                            }
+                            if($previous_odo != 0){
+                                $distance_traveled = $d->odo - $previous_odo;
+                                if($distance_traveled == 0){
+                                    $distance_traveled = 0.01;
+                                }
+                            }
+                            $total_distance_traveled+=$distance_traveled;
+                            $previous_odo = $d->odo;
+                        }
+                        array_push($arrayDistanceTravelled, $total_distance_traveled);
+                        $previous_odo = 0;
+                    }
+                    break;
+                case "number":
+                    foreach($arrayTransactions as $db){
+                        $ym = explode("-", $db);
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereYear('processed_at', '=', (int)$ym[0])
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+                        
+                        $total_distance_traveled = 0;
+                        foreach($data as $d){
+                            if($d->odo <= 0.01){
+                                $d->odo = 0.01;
+                            }
+                            if($previous_odo != 0){
+                                $distance_traveled = $d->odo - $previous_odo;
+                                if($distance_traveled == 0){
+                                    $distance_traveled = 0.01;
+                                }
+                            }
+                            $total_distance_traveled+=$distance_traveled;
+                            $previous_odo = $d->odo;
+                        }
+                        array_push($arrayDistanceTravelled, $total_distance_traveled);
+                        $previous_odo = 0;
+                    }
+                    break;
+                case "date":
+                    $data = IssuanceRequest::where('vehicle_id', $id)
+                        ->where('status', 'ISSUED')
+                        ->where('odo', '>', 0)
+                        ->where('actual_qty', '>', 0)
+                        ->whereBetween('processed_at', [$_GET['date_from'], $_GET['date_to']])
+                        ->orderBy('processed_at', 'ASC')
+                        ->get();
+                    
+                    
+                    foreach($data as $d){
+                        if($d->odo <= 0.01){
+                            $d->odo = 0.01;
+                        }
+                        if($previous_odo != 0){
+                            $distance_traveled = $d->odo - $previous_odo;
+                            if($distance_traveled == 0){
+                                $distance_traveled = 0.01;
+                            }
+                        }
+                        array_push($arrayTransactions,array(date('m-d-Y',strtotime($d->processed_at))));
+                        array_push($arrayDistanceTravelled, array($distance_traveled));
+                        $previous_odo = $d->odo;
+                    }
+                    break;
+                case "text":
+                    $semiAnnualArray = explode(',', str_replace(['[', ']', "'", ' '], '', $_GET['semi_annual']));
+                    $semi_year = $_GET['semi_year'];
+                    foreach($semiAnnualArray as $month){
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereYear('processed_at', '=', (int)$semi_year)
+                            ->whereMonth('processed_at', '=', (int)$month)
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+                        
+                        $total_distance_traveled = 0;
+                        foreach($data as $d){
+                            if($d->odo <= 0.01){
+                                $d->odo = 0.01;
+                            }
+                            if($previous_odo != 0){
+                                $distance_traveled = $d->odo - $previous_odo;
+                                if($distance_traveled == 0){
+                                    $distance_traveled = 0.01;
+                                }
+                            }
+                            $total_distance_traveled+=$distance_traveled;
+                            $previous_odo = $d->odo;
+                        }
+                        array_push($arrayTransactions, $this->months[$month]." ".$semi_year);
+                        array_push($arrayDistanceTravelled, $total_distance_traveled);
+                        $previous_odo = 0;
+                    }
+                    break;
+            }
+        } else {
+            $data = IssuanceRequest::where('vehicle_id', $id)
+                ->where('status', 'ISSUED')
+                ->where('odo', '>', 0)
+                ->where('actual_qty', '>', 0)
+                ->orderBy('processed_at', 'ASC')
+                ->get();
+
+            foreach($data as $d){
+                if($d->odo <= 0.01){
+                    $d->odo = 0.01;
+                }
+                if($previous_odo != 0){
+                    $distance_traveled = $d->odo - $previous_odo;
+                    if($distance_traveled == 0){
+                        $distance_traveled = 0.01;
+                    }
+                }
+                array_push($arrayTransactions,array(date('m-d-Y',strtotime($d->processed_at))));
+                array_push($arrayDistanceTravelled,array($distance_traveled));
+                $previous_odo = $d->odo;
+            }
+        }
+
+        return [
+            'arrayDistanceTravelled' => $arrayDistanceTravelled,
+            'arrayTransaction' => $arrayTransactions
+        ];
+    }
+
+    public function fuel_economy_consumption($id){
+        $previous_odo = 0; $cntr = 0; $fuel_economy = 0; $fuel_consumption = 0;
+        $arrayEconomyData = [];
+        $arrayTransaction = [];
+        $arrayConsuData = [];
+
+        if(isset($_GET['report_basis'])){
+            $arrayTransaction = $this->getDataBetween($_GET["date_from"], $_GET["date_to"]);
+            switch($_GET["report_basis"]){
+                case "week":
+                    foreach($arrayTransaction as $db){
+                        $startOfWeek = Carbon::parse($db)->startOfWeek()->toDateString();
+                        $endOfWeek = Carbon::parse($db)->endOfWeek()->toDateString();
+
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereBetween('processed_at', [$startOfWeek, $endOfWeek])
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+
+                        $total_fuel_economy = 0;
+                        $total_fuel_consumption = 0;
+                        foreach ($data as $d) {
+                            $cntr++;
+            
+                            if ($cntr > 1) {
+                                $distance_traveled = $d->odo - $previous_odo;
+                                $fuel_economy = $previous_odo == $d->odo ? $fuel_economy : $distance_traveled / $d->actual_qty;
+                                $fuel_consumption = $previous_odo == $d->odo ? $fuel_consumption : ($d->actual_qty / $distance_traveled) / env('CONSUMPTION_DIVISOR');
+                            }
+                            $total_fuel_economy+= $fuel_economy;
+                            $total_fuel_consumption+= $fuel_consumption;
+                            $previous_odo = $d->odo;
+                        }
+                        $arrayEconomyData[] = [round($total_fuel_economy, 2)];
+                        $arrayConsuData[] = [round($total_fuel_consumption, 4)];
+                        $previous_odo = 0;
+                    }
+                    break;
+                case "month":
+                    foreach($arrayTransaction as $db){
+                        $ym = explode("-", $db);
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereYear('processed_at', '=', (int)$ym[0])
+                            ->whereMonth('processed_at', '=', (int)$ym[1])
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+                        
+                        $total_fuel_economy = 0;
+                        $total_fuel_consumption = 0;
+                        foreach ($data as $d) {
+                            $cntr++;
+            
+                            if ($cntr > 1) {
+                                $distance_traveled = $d->odo - $previous_odo;
+                                $fuel_economy = $previous_odo == $d->odo ? $fuel_economy : $distance_traveled / $d->actual_qty;
+                                $fuel_consumption = $previous_odo == $d->odo ? $fuel_consumption : ($d->actual_qty / $distance_traveled) / env('CONSUMPTION_DIVISOR');
+                            }
+                            $total_fuel_economy+= $fuel_economy;
+                            $total_fuel_consumption+= $fuel_consumption;
+                            $previous_odo = $d->odo;
+                        }
+                        $arrayEconomyData[] = [round($total_fuel_economy, 2)];
+                        $arrayConsuData[] = [round($total_fuel_consumption, 4)];
+                        $previous_odo = 0;
+                    }
+                    break;
+                case "number":
+                    foreach($arrayTransaction as $db){
+                        $ym = explode("-", $db);
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereYear('processed_at', '=', (int)$ym[0])
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+                        
+                        $total_fuel_economy = 0;
+                        $total_fuel_consumption = 0;
+                        foreach ($data as $d) {
+                            $cntr++;
+            
+                            if ($cntr > 1) {
+                                $distance_traveled = $d->odo - $previous_odo;
+                                $fuel_economy = $previous_odo == $d->odo ? $fuel_economy : $distance_traveled / $d->actual_qty;
+                                $fuel_consumption = $previous_odo == $d->odo ? $fuel_consumption : ($d->actual_qty / $distance_traveled) / env('CONSUMPTION_DIVISOR');
+                            }
+                            $total_fuel_economy+= $fuel_economy;
+                            $total_fuel_consumption+= $fuel_consumption;
+                            $previous_odo = $d->odo;
+                        }
+                        $arrayEconomyData[] = [round($total_fuel_economy, 2)];
+                        $arrayConsuData[] = [round($total_fuel_consumption, 4)];
+                        $previous_odo = 0;
+                    }
+                    break;
+                case "date":
+                    $data = IssuanceRequest::where('vehicle_id', $id)
+                        ->where('status', 'ISSUED')
+                        ->where('odo', '>', 0)
+                        ->where('actual_qty', '>', 0)
+                        ->whereBetween('processed_at', [$_GET['date_from'], $_GET['date_to']])
+                        ->orderBy('processed_at', 'ASC')
+                        ->get();
+                    
+                    foreach ($data as $d) {
+                        $cntr++;
+        
+                        if ($cntr > 1) {
+                            $distance_traveled = $d->odo - $previous_odo;
+                            $fuel_economy = $previous_odo == $d->odo ? $fuel_economy : $distance_traveled / $d->actual_qty;
+                            $fuel_consumption = $previous_odo == $d->odo ? $fuel_consumption : ($d->actual_qty / $distance_traveled) / env('CONSUMPTION_DIVISOR');
+                        }
+        
+                        $arrayTransaction[] = [date('m-d-Y', strtotime($d->created_at))];
+                        $arrayEconomyData[] = [round($fuel_economy, 2)];
+                        $arrayConsuData[] = [round($fuel_consumption, 4)];
+        
+                        $previous_odo = $d->odo;
+                    }
+                    break;
+                case "text":
+                    $semiAnnualArray = explode(',', str_replace(['[', ']', "'", ' '], '', $_GET['semi_annual']));
+                    $semi_year = $_GET['semi_year'];
+                    foreach($semiAnnualArray as $month){
+                        $data = IssuanceRequest::where('vehicle_id', $id)
+                            ->where('status', 'ISSUED')
+                            ->where('odo', '>', 0)
+                            ->where('actual_qty', '>', 0)
+                            ->whereYear('processed_at', '=', (int)$semi_year)
+                            ->whereMonth('processed_at', '=', (int)$month)
+                            ->orderBy('processed_at', 'ASC')
+                            ->get();
+                        
+                        $total_fuel_economy = 0;
+                        $total_fuel_consumption = 0;
+                        foreach ($data as $d) {
+                            $cntr++;
+            
+                            if ($cntr > 1) {
+                                $distance_traveled = $d->odo - $previous_odo;
+                                $fuel_economy = $previous_odo == $d->odo ? $fuel_economy : $distance_traveled / $d->actual_qty;
+                                $fuel_consumption = $previous_odo == $d->odo ? $fuel_consumption : ($d->actual_qty / $distance_traveled) / env('CONSUMPTION_DIVISOR');
+                            }
+                            $total_fuel_economy+= $fuel_economy;
+                            $total_fuel_consumption+= $fuel_consumption;
+                            $previous_odo = $d->odo;
+                        }
+                        $arrayEconomyData[] = [round($total_fuel_economy, 2)];
+                        $arrayConsuData[] = [round($total_fuel_consumption, 4)];
+                        $arrayTransaction[] = [$this->months[$month]." ".$semi_year];
+                        $previous_odo = 0;
+                    }
+                    break;
+            }
+        }else{
+            $data = IssuanceRequest::where('vehicle_id', $id)
+                ->where('status', 'ISSUED')
+                ->where('odo', '>', 0)
+                ->where('actual_qty', '>', 0)
+                ->orderBy('processed_at', 'ASC')
+                ->get();
+
+            foreach ($data as $d) {
+                $cntr++;
+
+                if ($cntr > 1) {
+                    $distance_traveled = $d->odo - $previous_odo;
+                    $fuel_economy = $previous_odo == $d->odo ? $fuel_economy : $distance_traveled / $d->actual_qty;
+                    $fuel_consumption = $previous_odo == $d->odo ? $fuel_consumption : ($d->actual_qty / $distance_traveled) / env('CONSUMPTION_DIVISOR');
+                }
+
+                $arrayTransaction[] = [date('m-d-Y', strtotime($d->created_at))];
+                $arrayEconomyData[] = [round($fuel_economy, 2)];
+                $arrayConsuData[] = [round($fuel_consumption, 4)];
+
+                $previous_odo = $d->odo;
+            }
+        }
+
+        return [
+            'arrayTransaction' => $arrayTransaction,
+            'arrayEconomyData' => $arrayEconomyData,
+            'arrayConsuData'   => $arrayConsuData
+        ];
+    }
+
+    public function vehicleInfo($id) {
+        
+        $details = Vehicles::find($id);
+
+        if ($details->type == 'Heavy Equipment') {
+            return $this->heavy_equipment_profile($id);
+        }
+
+        $issuances = IssuanceRequest::where('vehicle_id', $id)
+            ->where('status', 'ISSUED')
+            ->orderBy('processed_at', 'desc')
+            ->paginate(10);
+
+        $data = IssuanceRequest::where('vehicle_id', $id)
+            ->where('status', 'ISSUED')
+            ->where('odo', '>', 0)
+            ->where('actual_qty', '>', 0)
+            ->orderBy('processed_at', 'ASC')
+            ->get();
+
+        $previous_odo = 0;
+        $previous_fuel_qty = 0;
+        $distance_traveled = 0;
+        $fuel_economy = 0;
+        $fuel_consumption = 0;
+
+        $oth['total_distance'] = 0;
+        $oth['total_fuel_issued'] = 0;
+        $raw = '';
+        $avg = 0;
+        $ss = '';
+        $my_hack_data = [];
+        $cntr = 0;
+
+        foreach ($data as $d) {
+            $cntr++;
+            $is_tag = '';
+
+            if ($d->odo <= 0.01) {
+                $d->odo = 0.01;
+            }
+
+            if ($cntr > 1) {
+                $distance_traveled = $d->odo - $previous_odo;
+                $distance_traveled = $distance_traveled == 0 ? 0.01 : $distance_traveled;
+
+                if ($previous_odo == $d->odo) {
+                    $oth['total_distance'] += $distance_traveled;
+                    $oth['total_fuel_issued'] += $d->actual_qty;
+                } else {
+                    //2024-05-11 change the formula to use the previous fuel
+                    //$fuel_economy = $distance_traveled / $d->actual_qty; 
+                    $fuel_economy = $distance_traveled / $previous_fuel_qty; 
+                    //logger($fuel_economy." xx ".$distance_traveled." xx ".$previous_fuel_qty);
+                    $fuel_consumption = ($d->actual_qty / $distance_traveled) * env('CONSUMPTION_DIVISOR');
+                    $diff = $avg - $fuel_economy;
+
+                    $oth['total_distance'] += $distance_traveled;
+                    $oth['total_fuel_issued'] += $d->actual_qty;
+
+                    if ($oth['total_fuel_issued'] > 0) {
+                        $avg = $oth['total_distance'] / $oth['total_fuel_issued'];
+                    }
+
+                    if ($diff >= env('STANDARD_DIFF') || $diff <= (env('STANDARD_DIFF') * -1)) {
+                        $is_tag = '<i class="fa fa-exclamation-triangle" style="color:red"></i>';
+                    }
+                }
+            } else {
+                $oth['total_fuel_issued'] += $d->actual_qty;
+            }
+            
+            $my_hack_data[] = '<tr>
+                <td><a target="_blank" href="' . route('view.issuance', $d->id) . '">' . $d->uniq_code . '</a></td>
+                <td>' . $d->rq . '</td>
+                <td>' . date('Y-m-d H:i A', strtotime($d->processed_at)) . '</td>
+                <td>' . number_format($previous_odo, 2) . '</td>
+                <td>' . number_format($d->odo, 2) . '</td>
+                <td>' . number_format($distance_traveled, 2) . '</td>
+                <td>' . number_format($previous_fuel_qty, 2) . '</td>
+                <td>' . number_format($d->actual_qty, 2) . '</td>
+                <td>' . number_format($fuel_economy, 2) . ' ' . $is_tag . '</td>
+                <td>' . number_format($fuel_consumption, 4) . '</td>
+                <td>' . $d->type . '</td>
+                <td>' . $d->location . '</td>
+            </tr>';
+
+            $previous_odo = $d->odo;
+            $previous_fuel_qty = $d->actual_qty;
+        }
+
+        $result = $this->vehicle_distance_travelled($id);
+        $arrayDistanceTravelled = $result['arrayDistanceTravelled'];
+        $arrayDistanceTransactions = $result['arrayTransaction'];
+
+        $result = $this->fuel_economy_consumption($id);
+        $arrayTransaction = $result['arrayTransaction'];
+        $arrayEconomyData = $result['arrayEconomyData'];
+        $arrayConsuData   = $result['arrayConsuData'];
+
+
+        $hack_collection = collect(array_reverse($my_hack_data))->chunk(10);
+        $currentPage = request()->input('page', 1);
+        $currentPageData = $hack_collection[$currentPage - 1] ?? $hack_collection[0];
+
+        foreach ($currentPageData as $data1) {
+            $raw .= $data1;
+        }
+
+        if ($cntr > 1 && $oth['total_distance'] > 0) {
+            $oth['fuel_economy'] = number_format(($oth['total_distance'] / $oth['total_fuel_issued']), 2);
+            $oth['fuel_consumption'] = number_format(($oth['total_fuel_issued'] / $oth['total_distance']) * env('CONSUMPTION_DIVISOR'), 4);
+            $oth['last_odo'] = number_format(($d->odo ?? 0), 2);
+        } else {
+            $oth['fuel_economy'] = 0;
+            $oth['fuel_consumption'] = 0;
+            $oth['last_odo'] = number_format(($d->odo ?? 0), 2);
+        }
+
+        return view('vehicle.summary', compact('details', 'issuances', 'raw', 'oth', 'data', 'arrayDistanceTravelled', 'arrayDistanceTransactions', 'arrayTransaction', 'arrayEconomyData', 'arrayConsuData'));
+    }
+
+
+    public function heavy_equipment_profile($id){
+
+        $details = Vehicles::find($id);
+        if($details->isECS == 0){
+            $dispatch_id = $details->crossref_vid;
+        }
+        else{
+            $dispatch_id = $details->id;   
+        }
+
+        //return $this->get_total_hours_used($previous_odo,$d->processed_at,$dispatch_id);
+
+        $qry = IssuanceRequest::where('vehicle_id',$id);
+        //dd($qry->where('status','ISSUED')->orderBy('id','desc')->get());
+        
+       
+        $issuances = $qry->where('status','ISSUED')->orderBy('id','desc')->paginate(10);
+        $total_actual_qty = $qry->where('status','ISSUED')->sum('actual_qty');
+
+        $data = IssuanceRequest::where('vehicle_id',$id)->whereStatus('ISSUED')->where('odo','>',0)->where('actual_qty','>',0)->get();
+        $starting_hr = 0;
+        $final_hr = 0;
+        $working_hr = 0;
+        $previous_date = '';
+        $previous_fuel_qty = 0;
+        $distance_traveled = 0;
+        $fuel_economy = 0;
+        $fuel_consumption = 0;
+        
+        
+        $cntr = 0;
+        $oth['total_distance']=0;
+        $oth['total_fuel_issued']=0;
+        $oth['total_working_hour']=0;
+        $raw = '';
+        $avg = 0;
+        $ss = '';
+        $arrayTransaction = Array(); 
+        $arrayConsuData = Array();
+        
+
+        foreach($data as $d){
+
+            if($d->odo <= 0.01){
+                $d->odo = 0.01;
+            }
+            $cntr++;
+            $is_tag = '';
+
+            if($cntr > 1){                
+                //$distance_traveled = strtotime($d->processed_at) - strtotime($previous_odo);
+                $hrs_used = $this->get_total_hours_used($previous_date,$d->processed_at,$dispatch_id);
+                $starting_hr = $previous_hr;
+                $final_hr += $hrs_used; 
+            }
+            else{               
+
+                $previous_dispatched = Dispatch::where('unitId',$dispatch_id)->where('dateEnd','<',$d->processed_at)->orderBy('dateEnd','DESC')->first();
+                if($previous_dispatched){
+                    $starting_hr = $this->get_total_hours_used('2000-01-01 00:01 AM',$previous_dispatched->dateEnd,$dispatch_id);
+
+                    $final_hr = $this->get_total_hours_used($previous_dispatched->dateEnd,$d->processed_at,$dispatch_id) + $starting_hr;
+                }else{
+                    $final_hr = $this->get_total_hours_used('2000-01-01 00:01 AM',$d->processed_at,$dispatch_id);
+                }
+
+                
+            }
+            
+            $working_hr = $final_hr - $starting_hr;
+            if($working_hr > 0){
+                $fuel_consumption = $d->actual_qty / $working_hr;
+            }
+
+            $oth['total_fuel_issued']+=$d->actual_qty;
+            $oth['total_working_hour']+=$working_hr;
+                    
+            array_push($arrayTransaction,array(date('m-d-Y',strtotime($d->processed_at))));
+            array_push($arrayConsuData,array(round($fuel_consumption,4)));
+
+            $raw .= '<tr>
+                        <td><a target="_blank" href="'.route('view.issuance',$d->id).'">'.$d->uniq_code.'</a></td>
+                        <td>'.$d->rq.'</td>        
+                        <td>'.date('Y-m-d H:i A',strtotime($d->processed_at)).'</td>         
+                        <td>'.number_format($starting_hr,2).'</td>
+                        <td>'.number_format($final_hr,2).'</td>
+                        <td>'.number_format($working_hr,2).'</td>                    
+                        <td>'.number_format($d->actual_qty,2).'</td>
+                        <td>'.number_format($fuel_consumption,2).'</td>                 
+                        <td>'.$d->type.'</td>
+                        <td>'.$d->location.'</td>               
+                    </tr>';
+            
+            
+            $previous_hr = $final_hr;
+            $previous_date = $d->processed_at;
+            $previous_fuel_qty = $d->actual_qty;
+        }
+    
+
+        if($cntr>1 && $oth['total_distance'] > 0){
+            $oth['fuel_economy'] = number_format(($oth['total_distance'] / $oth['total_fuel_issued'] ),2);
+            $oth['fuel_consumption'] = number_format((($oth['total_fuel_issued']/$oth['total_distance'] ) * env('CONSUMPTION_DIVISOR')),4);            
+            $oth['last_odo'] = number_format(($d->odo ?? 0),2);
+        }else{
+            $oth['fuel_economy'] = 0;
+            $oth['fuel_consumption'] = 0;            
+            $oth['last_odo'] = number_format(($d->odo ?? 0),2);
+        }
+        
+        return view('vehicle.summary-heavy_equipment',compact('details','issuances','total_actual_qty','raw','oth','data','arrayTransaction','arrayConsuData'));
+    }
+
+    public function get_total_hours_used($start,$end,$vehicle)
+    {
+        $dispatches = Dispatch::where('unitId',$vehicle)->where('dateStart','>=',$start)->where('dateStart','<=',$end)->get();
+        $total = 0;
+        foreach($dispatches as $d){
+            $total += round((strtotime($d->dateEnd) - strtotime($d->dateStart))/3600, 1);
+        }
+        return $dispatches->count();
+    }
+
+    public function update(Request $req)
+    {
+        Vehicles::find($req->vid)->update([
+            'name' => $req->name,
+            'plateno' => $req->plateno,
+            'vehicle_code' => $req->ccode,
+            'type' => $req->type,
+            'dept' => $req->dept
+        ]);
+
+        return back()->with('successMsg','Vehicle details has been updated.');
+    }
+
+    public function delete(Request $req)
+    {
+        Vehicles::find($req->vid)->delete();
+
+        return back()->with('successMsg', 'Vehicle has been deleted.');
+    }
+
+}

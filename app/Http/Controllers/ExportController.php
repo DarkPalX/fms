@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Excel;
+
+use App\Export\IssuanceDepartment;
+use App\Export\IssuanceVehicle;
+use App\Export\IssuanceStatus;
+use App\Export\Issuances;
+use App\Export\MonthlyIssuanceVehicle;
+
+
+class ExportController extends Controller {
+
+    public function issuance_status(Request $req) {
+        return Excel::download(new IssuanceStatus($req), $req->status.' Issuances '.now().'.xlsx');
+    }
+
+    public function issuance_department(Request $req) {
+        return Excel::download(new IssuanceDepartment($req), 'Department Issuances '.now().'.xlsx');
+    }
+
+    public function issuance_vehicle(Request $req) {
+        return Excel::download(new IssuanceVehicle($req), 'Vehicle Issuances '.now().'.xlsx');
+    }
+
+    public function issuances(Request $req) {
+        return Excel::download(new Issuances($req), 'Fuel Issuances '.now().'.xlsx');
+    }
+
+    public function monthly_issue_vehicle(Request $req) {
+        return Excel::download(new MonthlyIssuanceVehicle($req), 'Monthy Vehicle Issuances '.now().'.xlsx');
+    }
+
+    
+ 
+//
+
+    
+
+}

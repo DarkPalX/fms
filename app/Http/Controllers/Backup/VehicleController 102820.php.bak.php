@@ -1,0 +1,159 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+use Auth;
+use DB;
+
+use App\IssuanceRequest;
+use App\Vehicles;
+
+class VehicleController extends Controller
+{
+    public function index(){
+
+        $vehicles = Vehicles::where('isECS',0)->orderBy('name', 'asc')->paginate(10); 
+
+        return view('vehicle.index',compact('vehicles'));
+    }
+
+    public function store(Request $req)
+    {
+        Vehicles::create([
+            'name' => $req->name,
+            'plateno' => $req->plateno,
+            'vehicle_code' => $req->ccode,
+            'type' => $req->type,
+            'dept' => $req->dept,
+            'isECS' => 0
+        ]);
+
+        return redirect(route('vehicle.lists'))->with('successMsg', 'Vehicle has been added.');
+    }
+
+    // public function vehicleInfo($id){
+
+    //     $qry = IssuanceRequest::where('vehicle_id',$id);
+    //     $details = Vehicles::find($id);
+
+    //     $issuances = $qry->where('status','ISSUED')->orderBy('id','desc')->paginate(10);
+    //     $total_actual_qty = $qry->where('status','ISSUED')->sum('actual_qty');
+        
+    //     return view('vehicle.summary',compact('details','issuances','total_actual_qty'));
+    // }
+    public function vehicleInfo($id){
+
+        $qry = IssuanceRequest::where('vehicle_id',$id);
+        $details = Vehicles::find($id);
+
+        $issuances = $qry->where('status','ISSUED')->orderBy('id','desc')->paginate(10);
+        $total_actual_qty = $qry->where('status','ISSUED')->sum('actual_qty');
+
+        $data = IssuanceRequest::where('vehicle_id',$id)->whereStatus('ISSUED')->where('odo','>',0)->where('actual_qty','>',0)->get();
+        $previous_odo = 0;
+        $previous_fuel_qty = 0;
+        $distance_traveled = 0;
+        $fuel_economy = 0;
+        $fuel_consumption = 0;
+        
+        
+        $cntr = 0;
+        $oth['total_distance']=0;
+        $oth['total_fuel_issued']=0;
+        $raw = '';
+        $avg = 0;
+        $ss = '';
+        foreach($data as $d){
+            if($d->odo <= 0.01){
+                $d->odo = 0.01;
+            }
+            $cntr++;
+            $is_tag = '';
+
+            if($cntr > 1){
+                $distance_traveled = $d->odo - $previous_odo;
+                if($distance_traveled == 0){
+                    $distance_traveled = 0.01;
+                }
+                if($previous_odo == $d->odo){
+                    $fuel_economy = $fuel_economy;
+                    $fuel_consumption = $fuel_consumption;
+                    $oth['total_distance']+=$distance_traveled;
+                    $oth['total_fuel_issued']+=$d->actual_qty;
+                }
+                else{
+                    $fuel_economy = $distance_traveled / $d->actual_qty;
+                    $fuel_consumption = ($d->actual_qty / $distance_traveled) * env('CONSUMPTION_DIVISOR');
+                    $diff = $avg - $fuel_economy;                    
+                    
+                    $oth['total_distance']+=$distance_traveled;
+                    $oth['total_fuel_issued']+=$d->actual_qty;
+
+                    if($oth['total_fuel_issued'] > 0){
+                        $avg = $oth['total_distance'] / ($oth['total_fuel_issued']);
+                    }
+                    if($diff >= env('STANDARD_DIFF')  || $diff <= (env('STANDARD_DIFF')*-1)){
+                        $is_tag='<i class="fa fa-exclamation-triangle" style="color:red"></i>';
+                    }
+                }
+            }
+            else{
+                $oth['total_fuel_issued']+=$d->actual_qty;
+            }
+               
+
+            $raw .= '<tr>
+                        <td><a target="_blank" href="'.route('view.issuance',$d->id).'">'.$d->uniq_code.'</a></td>
+                        <td>'.$d->rq.'</td>     
+                        <td>'.date('Y-m-d H:i A',strtotime($d->processed_at)).'</td>           
+                        <td>'.number_format($previous_odo,2).'</td>
+                        <td>'.number_format($d->odo,2).'</td>
+                        <td>'.number_format($distance_traveled,2).'</td>                    
+                        <td>'.number_format($previous_fuel_qty,2).'</td>
+                        <td>'.number_format($d->actual_qty,2).'</td>
+                        <td>'.number_format($fuel_economy,2).' '.$is_tag.'</td>
+                        <td>'.number_format($fuel_consumption,4).'</td>               
+                    </tr>';
+            
+            
+            $previous_odo = $d->odo;
+            $previous_fuel_qty = $d->actual_qty;
+        }
+    
+
+        if($cntr>1 && $oth['total_distance'] > 0){
+            $oth['fuel_economy'] = number_format(($oth['total_distance'] / $oth['total_fuel_issued'] ),2);
+            $oth['fuel_consumption'] = number_format((($oth['total_fuel_issued']/$oth['total_distance'] ) * env('CONSUMPTION_DIVISOR')),4);
+            $oth['last_odo'] = number_format(($d->odo ?? 0),2);
+        }else{
+            $oth['fuel_economy'] = 0;
+            $oth['fuel_consumption'] = 0;
+            $oth['last_odo'] = number_format(($d->odo ?? 0),2);
+        }
+        
+        return view('vehicle.summary',compact('details','issuances','total_actual_qty','raw','oth','data'));
+    }
+
+    public function update(Request $req)
+    {
+        Vehicles::find($req->vid)->update([
+            'name' => $req->name,
+            'plateno' => $req->plateno,
+            'vehicle_code' => $req->ccode,
+            'type' => $req->type,
+            'dept' => $req->dept
+        ]);
+
+        return back()->with('successMsg','Vehicle details has been updated.');
+    }
+
+    public function delete(Request $req)
+    {
+        Vehicles::find($req->vid)->delete();
+
+        return back()->with('successMsg', 'Vehicle has been deleted.');
+    }
+
+}

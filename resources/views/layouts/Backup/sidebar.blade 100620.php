@@ -1,0 +1,231 @@
+<aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <a href="index.html" class="brand-link navbar-primary">
+        <img src="{{ asset('assets/dist/img/AdminLTELogo.png') }}" alt="AdminLTE Logo" class="brand-image img-circle elevation-3"
+        style="opacity: .8">
+        <span class="brand-text font-weight-light">Admin<small>Portal</small></span>
+    </a>
+
+    <div class="sidebar">
+        <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+            <div class="image">
+                <img src="{{ asset('assets/dist/img/avatars/user.png') }}" class="img-circle elevation-2" alt="User Image">
+            </div>
+            <div class="info">
+                <a href="#" class="d-block text-uppercase" style="font-size: 13px;">{{ Auth::user()->name }}</a>
+            </div>
+        </div>
+
+        <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+                <li class="nav-header">MENUS</li>
+                <li class="nav-item">
+                    <a href="{{ route('fuel.issuances') }}" class="nav-link">
+                        <i class="nav-icon fas fa-oil-can"></i>
+                        <p>Fuel Issuances</p>
+                    </a>
+                </li>
+
+                @if(in_array(auth()->user()->role,['gas man', 'super admin', 'clerk']))
+                <li class="nav-item">
+                    <a href="{{ route('fuel.pending-request') }}" class="nav-link">
+                        <i class="nav-icon fas fa-gas-pump"></i>
+                        <p>Fuel Requests</p>
+                        <span class="badge badge-danger right">{{ \App\IssuanceRequest::total_unissued_request() }}</span>
+                    </a>
+                </li>
+                @endif
+
+                @if(in_array(auth()->user()->role,['admin', 'clerk', 'super admin']))
+                <li class="nav-item has-treeview">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-qrcode"></i>
+                        <p>
+                            RQ Verification
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="{{ route('rq.list') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Verified RQ</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('rq.pending') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Pending RQ</p>
+                                <span class="badge badge-info right">{{ \App\RQ::countPendingRQ() }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('rq.unverified') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Unverified RQ</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                @endif
+
+                @if(in_array(auth()->user()->role,['clerk', 'super admin']))
+                <li class="nav-item">
+                    <a href="{{ route('manual-issuance') }}" class="nav-link">
+                        <i class="nav-icon fas fa-gas-pump"></i>
+                        <p>Manual Issuance</p>
+                    </a>
+                </li>
+                @endif
+
+                @if(in_array(auth()->user()->role,['admin', 'super admin']))
+                <li class="nav-item has-treeview">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-book"></i>
+                        <p>
+                            Approval Request
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="{{ route('approval-pending.list') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Pending Request</p>
+                                <span class="badge badge-info right">{{ \App\ApprovalRequest::countPendingApproval() }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('approval.list') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Request List</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{{ route('vehicle.lists') }}" class="nav-link">
+                        <i class="nav-icon fa fa-truck"></i>
+                        <p>
+                            Vehicles
+                        </p>
+                    </a>
+                </li>
+                @endif
+
+                @if(in_array(auth()->user()->role,['admin', 'super admin']))
+                <li class="nav-item has-treeview">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-cogs"></i>
+                        <p>
+                            Settings
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        @if(auth()->user()->role == 'super admin')
+                        <li class="nav-item">
+                            <a href="{{ route('users') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Users</p>
+                            </a>
+                        </li>
+                        @endif
+                        <li class="nav-item">
+                            <a href="/fuel/index" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Manage Fuel Type</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('phase-code') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Plant Codes</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('project-code') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Project Codes</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('activity-logs') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Activity Logs</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('downtime.list') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Downtime</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                @endif
+
+                @if(!in_array(auth()->user()->role,['gas man', 'clerk']))
+                <li class="nav-item has-treeview">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-file-pdf"></i>
+                        <p>
+                            Reports
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="{{ route('report.fuel-issuances') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Fuel Requests/Issuances</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('report.issuance-status') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Issuance: Status</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('report.issuance-department') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Issuance: Department Summary</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('report.issuance-department-details') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Issuance: Department Vehicles</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('report.issuance-vehicle') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Issuance: Vehicle</p>
+                            </a>
+                        </li>
+                        <!-- <li class="nav-item">
+                            <a href="{{ route('report.unpost') }}" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Unpost Request</p>
+                            </a>
+                        </li> -->
+                    </ul>
+                </li>
+                @endif
+
+                <li class="nav-header">MISCELLANEOUS</li>
+
+                <li class="nav-item">
+                    <a href="" class="nav-link">
+                        <i class="nav-icon fa fa-book"></i>
+                        <p>
+                            Documentation
+                        </p>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</aside>
