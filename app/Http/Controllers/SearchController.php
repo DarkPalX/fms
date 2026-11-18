@@ -166,18 +166,18 @@ class SearchController extends Controller
     }
 
     public function search_plateno(Request $req){
-
+ 
         $output = "";
-
+ 
         $data = $this->conn_vms->table('unit')->where('plateno','LIKE', '%'.$req->plateno.'%')->get();
-
+ 
         $rows = count($data);
-
+ 
         if($rows > 0){
             foreach($data as $key => $d){
-
+ 
             $isLowFuel = (bool)($d->isLowFuel ?? false); // Adjust to $d if $v was a typo
-
+ 
             $output .= '<tr>' .
                 '<td>' . e($d->name) . '</td>' .
                 '<td>' . e($d->plateno) . '</td>' .
@@ -185,7 +185,7 @@ class SearchController extends Controller
                 '<td>' . e($d->dept) . '</td>' .
                 '<td>' . e($d->type) . '</td>' .
                 '<td>';
-
+ 
             if ($isLowFuel) {
                 $output .= '<a href="' . route('low_fuel.vehicle', ['vehicle_id' => $d->id, 'status' => 0]) . '"><i class="fa fa-toggle-on"></i></a> ' .
                         '<span class="text-danger">LOW FUEL ECONOMY</span>';
@@ -193,12 +193,12 @@ class SearchController extends Controller
                 $output .= '<a href="' . route('low_fuel.vehicle', ['vehicle_id' => $d->id, 'status' => 1]) . '"><i class="fa fa-toggle-off"></i></a> ' .
                         '<span class="text-dark">GOOD FUEL ECONOMY</span>';
             }
-
+ 
             $output .= '</td>' .
                 '<td><a class="btn btn-secondary btn-xs mb-1" href="' . route('fms.vehicle-summary-monthly', $d->id) . '">View Summary</a></td>' .
             '</tr>';
-
-                // $output .= 
+ 
+                // $output .=
                 // '<tr>'.
                 //     '<td>'.$d->name.'</td>'.
                 //     '<td>'.$d->plateno.'</td>'.
@@ -214,7 +214,7 @@ class SearchController extends Controller
             $output .= '<tr><td colspan="6"><center>Plate number not found.</center></td></tr>';
             return Response($output);
         }
-
+ 
     }
 
     

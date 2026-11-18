@@ -1,5 +1,5 @@
 @extends('layouts.app')
-<style> 
+<style>
  .table_wrapper{
     display: block;
     overflow-x: auto;
@@ -20,7 +20,7 @@
         </div>
     </div>
 </div>
-
+ 
 <section class="content">
     <div class="row">
         <div class="col-md-12">
@@ -29,7 +29,7 @@
                     <div class="col-sm-2">
                         <div class="form-group">
                             <label>Department <i class="text-danger">*</i></label>
-                            <select name="department" class="form-control">     
+                            <select name="department" class="form-control">    
                                 <option value> -- Select Department -- </option>                              
                                 @foreach($depts as $dept)
                                     @if(request()->department == $dept)
@@ -44,8 +44,8 @@
                     <div class="col-sm-2">
                         <div class="form-group">
                             <label>Fuel Type <i class="text-danger">*</i></label>
-                            <select name="fuel_type" class="form-control">     
-                                <option value> -- Select Fuel Type -- </option>                                 
+                            <select name="fuel_type" class="form-control">    
+                                <option value> -- Select Fuel Type -- </option>                                
                                 @foreach($fuel_types as $fuel_type)
                                     @if(request()->fuel_type == $fuel_type)
                                         <option value="{{ $fuel_type }}" selected>{{ $fuel_type }} </option>
@@ -62,10 +62,13 @@
                             <select name="vehicle" class="form-control">      
                                 <option value> -- Select Vehicle -- </option>                                
                                 @foreach($vehicles as $vehicle)
-                                    @if(request()->vehicle == $vehicle->vehicle)
-                                        <option value="{{ $vehicle->vehicle }}" selected>{{ $vehicle->vehicle }} - {{ $vehicle->plate_no }} - {{ $vehicle->vehicle_id }}  </option>
+                                    @php
+                                        $vehicleValue = $vehicle->vehicle . '|' . $vehicle->plate_no;
+                                    @endphp
+                                    @if(request()->vehicle == $vehicleValue)
+                                        <option value="{{ $vehicleValue }}" selected>{{ $vehicle->vehicle }} - {{ $vehicle->plate_no }} - {{ $vehicle->vehicle_id }}  </option>
                                     @else
-                                        <option value="{{ $vehicle->vehicle }}">{{ $vehicle->vehicle }} - {{ $vehicle->plate_no }} - {{ $vehicle->vehicle_id }}  </option>
+                                        <option value="{{ $vehicleValue }}">{{ $vehicle->vehicle }} - {{ $vehicle->plate_no }} - {{ $vehicle->vehicle_id }}  </option>
                                     @endif
                                 @endforeach
                             </select>
@@ -74,8 +77,8 @@
                     <div class="col-sm-2">
                         <div class="form-group">
                             <label>Location <i class="text-danger">*</i></label>
-                            <select name="location" class="form-control">   
-                                <option value> -- Select Location -- </option>                                   
+                            <select name="location" class="form-control">  
+                                <option value> -- Select Location -- </option>                                  
                                 <option value="mill" @if(request()->location == 'mill') selected @endif> Mill </option>
                                 <option value="mine" @if(request()->location == 'mine') selected @endif> Mine </option>
                                 <option value="tanker" @if(request()->location == 'tanker') selected @endif> Tanker </option>
@@ -154,7 +157,7 @@
                                         <td>{{ $r->dept }}</td>
                                         <td>{{ $r->rq }}<br><small>{{ $r->rq_costcode }}</small></td>
                                         <td>{{ $r->cost_code }}</td>
-                                        <td>{{ $r->fuel_type }}<br><small>{{ $r->item_code }}</small></td> 
+                                        <td>{{ $r->fuel_type }}<br><small>{{ $r->item_code }}</small></td>
                                         <td>{{ $r->requested_qty }}</td>
                                         <td>{{ $r->actual_qty ?? '-'}}</td>
                                         <td>{{ number_format($r->actual_qty * $r->fuel_cost,2) }} </td>
@@ -164,12 +167,12 @@
                                         <td>{{ $r->status }}</td>
                                         <td>@if($r->status == 'CANCELLED') {{ $r->initiator }}<br><small>{{ date('Y-m-d h:i A',strtotime($r->initiated_at)) }}</small> @endif</td>
                                         <td>{{ $r->remarks ?? '-' }}</td>
-                                        <td>@if($r->status == 'ISSUED'){{ $r->processed_by }}<br><small>{{ date('Y-m-d h:i A',strtotime($r->processed_at)) }}</small>@endif</td> 
+                                        <td>@if($r->status == 'ISSUED'){{ $r->processed_by }}<br><small>{{ date('Y-m-d h:i A',strtotime($r->processed_at)) }}</small>@endif</td>
                                         <td>{{ $r->type }}</td>
                                         <td>{{ $r->location }}</td>
                                     </tr>
                                 @empty
-
+ 
                                 @endforelse
                             @endif
                         </tbody>

@@ -1202,40 +1202,87 @@ class ReportController extends Controller
 
     }
 
-
     public function issuedIssuances(Request $request)
-    {   
-
+    {  
+ 
         $qry = IssuanceRequest::whereNotNull('id')->where('status', 'ISSUED');
         $depts = IssuanceRequest::distinct()->orderBy('dept','asc')->get(['dept']);
         $fuel_types = Fuels::all()->pluck('fuel_type');
         $vehicles = IssuanceRequest::distinct()->orderBy('vehicle','asc')->get(['vehicle','vehicle_id','plate_no']);
-
+ 
         if(isset($_GET['startdate']) && strlen($_GET['startdate'])>=1){
             $qry->whereBetween('processed_at',[$_GET['startdate'].' 00:00:00',$_GET['enddate'].' 23:59:59']);
         } else {
-            $qry->whereBetween('processed_at',[now()->startOfMonth(),now()->endOfMonth()]); 
+            $qry->whereBetween('processed_at',[now()->startOfMonth(),now()->endOfMonth()]);
         }
-
+ 
         $qry->where(function($query) use ($request) {
             if(!is_null($request->department) )
                 $query->where('dept', $request->department);
         });
-
+ 
         $qry->where(function($query) use ($request) {
             if(!is_null($request->fuel_type))
                 $query->where('fuel_type', $request->fuel_type);
         });
-
+ 
         $qry->where(function($query) use ($request) {
             if($request->location != "")
                 $query->where('location', $request->location);
         });
-
+ 
+        // Vehicle names are not unique, so include the plate number when
+        // filtering. Keep accepting the old vehicle-only query parameter for
+        // links that may already exist.
+        if($request->filled('vehicle')) {
+            $vehicleFilter = explode('|', $request->input('vehicle'), 2);
+ 
+            if(count($vehicleFilter) === 2) {
+                $qry->where('vehicle', $vehicleFilter[0])
+                    ->where('plate_no', $vehicleFilter[1]);
+            } else {
+                $qry->where('vehicle', $request->input('vehicle'));
+            }
+        }
+ 
         $rs = $qry->orderBy('processed_at','desc')->get();
         return view('reports.issued-issuances',compact('rs','depts','fuel_types','vehicles'));
-
+ 
     }
+
+    // public function issuedIssuances(Request $request)
+    // {   
+
+    //     $qry = IssuanceRequest::whereNotNull('id')->where('status', 'ISSUED');
+    //     $depts = IssuanceRequest::distinct()->orderBy('dept','asc')->get(['dept']);
+    //     $fuel_types = Fuels::all()->pluck('fuel_type');
+    //     $vehicles = IssuanceRequest::distinct()->orderBy('vehicle','asc')->get(['vehicle','vehicle_id','plate_no']);
+
+    //     if(isset($_GET['startdate']) && strlen($_GET['startdate'])>=1){
+    //         $qry->whereBetween('processed_at',[$_GET['startdate'].' 00:00:00',$_GET['enddate'].' 23:59:59']);
+    //     } else {
+    //         $qry->whereBetween('processed_at',[now()->startOfMonth(),now()->endOfMonth()]); 
+    //     }
+
+    //     $qry->where(function($query) use ($request) {
+    //         if(!is_null($request->department) )
+    //             $query->where('dept', $request->department);
+    //     });
+
+    //     $qry->where(function($query) use ($request) {
+    //         if(!is_null($request->fuel_type))
+    //             $query->where('fuel_type', $request->fuel_type);
+    //     });
+
+    //     $qry->where(function($query) use ($request) {
+    //         if($request->location != "")
+    //             $query->where('location', $request->location);
+    //     });
+
+    //     $rs = $qry->orderBy('processed_at','desc')->get();
+    //     return view('reports.issued-issuances',compact('rs','depts','fuel_types','vehicles'));
+
+    // }
 
     public function pendingIssuances(Request $request)
     {
